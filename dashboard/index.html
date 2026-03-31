@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Nexus — Multi-Tenant Dashboard</title>
+<meta name="description" content="Premium admin dashboard for the Multi-Tenant AI system — chat, knowledge base, and tenant management.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#030712;--bg2:#0f172a;--bg3:#1e293b;--bg3h:#243450;
+  --border:rgba(99,102,241,.15);--borderS:#334155;
+  --accent:#6366f1;--accent2:#8b5cf6;--accent3:#06b6d4;
+  --grad:linear-gradient(135deg,#6366f1,#8b5cf6);
+  --text:#f1f5f9;--text2:#94a3b8;--textM:#64748b;
+  --ok:#10b981;--warn:#f59e0b;--err:#ef4444;
+  --sidebar:260px;--r:12px;--rs:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;overflow:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 15% 20%,rgba(99,102,241,.07) 0%,transparent 55%),radial-gradient(ellipse at 85% 80%,rgba(139,92,246,.05) 0%,transparent 55%);pointer-events:none;z-index:0}
+
+/* ── Sidebar ── */
+.sidebar{width:var(--sidebar);background:rgba(15,23,42,.95);backdrop-filter:blur(12px);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 14px;position:fixed;height:100vh;z-index:100}
+.logo{display:flex;align-items:center;gap:11px;padding:0 10px 24px;border-bottom:1px solid var(--border);margin-bottom:22px}
+.logo-icon{width:36px;height:36px;background:var(--grad);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 0 20px rgba(99,102,241,.4);flex-shrink:0}
+.logo-name{font-weight:700;font-size:15px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.3px}
+.logo-sub{font-size:10px;color:var(--textM);letter-spacing:.4px}
+.nav-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.2px;color:var(--textM);padding:0 10px;margin:14px 0 5px}
+.nav-item{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:var(--rs);cursor:pointer;color:var(--text2);font-size:13.5px;font-weight:500;transition:all .18s;position:relative;margin-bottom:2px;user-select:none}
+.nav-item:hover{background:rgba(99,102,241,.1);color:var(--text)}
+.nav-item.active{background:rgba(99,102,241,.15);color:var(--accent)}
+.nav-item.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:18px;background:var(--grad);border-radius:0 2px 2px 0}
+.nav-icon{font-size:15px;width:18px;text-align:center}
+.nav-ext{margin-left:auto;font-size:10px;color:var(--textM)}
+.sidebar-footer{margin-top:auto;padding-top:14px;border-top:1px solid var(--border)}
+.key-box{padding:10px;border-radius:var(--rs);background:rgba(255,255,255,.03);font-size:11.5px;margin-bottom:8px}
+.key-row{display:flex;align-items:center;gap:7px;margin-bottom:3px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--err);flex-shrink:0}
+.dot.on{background:var(--ok);box-shadow:0 0 7px var(--ok)}
+.dot.warn{background:var(--warn)}
+.key-lbl{color:var(--text2);font-weight:500;font-size:11px}
+.key-val{color:var(--textM);font-family:monospace;font-size:10.5px;margin-top:1px}
+
+/* ── Layout ── */
+.main{margin-left:var(--sidebar);flex:1;height:100vh;overflow-y:auto;position:relative;z-index:1}
+.view{display:none;animation:fadeIn .25s ease}
+.view.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Page header ── */
+.ph{padding:28px 36px 20px;display:flex;align-items:flex-start;justify-content:space-between}
+.ph-title{font-size:22px;font-weight:700;letter-spacing:-.5px}
+.ph-sub{font-size:13px;color:var(--textM);margin-top:3px}
+
+/* ── Cards ── */
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:22px;transition:border-color .2s,box-shadow .2s}
+.card:hover{border-color:rgba(99,102,241,.3)}
+.card-title{font-size:11px;font-weight:600;color:var(--textM);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px}
+
+/* ── Stats ── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:0 36px 20px}
+.stat-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--grad);opacity:.6}
+.stat-val{font-size:28px;font-weight:700;letter-spacing:-1px;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-lbl{font-size:12px;color:var(--text2);margin-top:3px}
+.stat-ico{position:absolute;top:18px;right:18px;font-size:20px;opacity:.35}
+
+/* ── Buttons ── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:var(--rs);font-size:13.5px;font-weight:600;cursor:pointer;border:none;transition:all .18s;font-family:inherit}
+.btn-primary{background:var(--grad);color:#fff;box-shadow:0 2px 12px rgba(99,102,241,.35)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(99,102,241,.45)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-ghost{background:rgba(255,255,255,.05);color:var(--text2);border:1px solid var(--borderS)}
+.btn-ghost:hover{background:rgba(255,255,255,.09);color:var(--text)}
+.btn-danger{background:rgba(239,68,68,.1);color:var(--err);border:1px solid rgba(239,68,68,.2)}
+.btn-danger:hover{background:rgba(239,68,68,.2)}
+.btn-sm{padding:5px 11px;font-size:12px}
+
+/* ── Forms ── */
+.fgrp{margin-bottom:18px}
+.flbl{display:block;font-size:12.5px;font-weight:500;color:var(--text2);margin-bottom:7px}
+.finp,.fsel{width:100%;padding:9px 13px;background:rgba(255,255,255,.05);border:1px solid var(--borderS);border-radius:var(--rs);color:var(--text);font-size:13.5px;font-family:inherit;transition:border-color .18s,box-shadow .18s;outline:none}
+.finp:focus,.fsel:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.14)}
+.finp::placeholder{color:var(--textM)}
+.fsel option{background:var(--bg3)}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600}
+.b-rag{background:rgba(6,182,212,.15);color:var(--accent3)}
+.b-tool{background:rgba(139,92,246,.15);color:#a78bfa}
+.b-chat{background:rgba(16,185,129,.15);color:var(--ok)}
+.b-esc{background:rgba(239,68,68,.15);color:var(--err)}
+.b-pend{background:rgba(245,158,11,.1);color:var(--warn)}
+.b-proc{background:rgba(99,102,241,.1);color:var(--accent)}
+.b-done{background:rgba(16,185,129,.1);color:var(--ok)}
+.b-fail{background:rgba(239,68,68,.1);color:var(--err)}
+.p-col{display:flex;flex-direction:column;gap:5px;width:120px}
+.p-bar-bg{width:100%;height:6px;background:rgba(255,255,255,.07);border-radius:10px;overflow:hidden;position:relative}
+.p-bar-fill{height:100%;background:var(--grad);border-radius:10px;transition:width .3s ease, background .3s ease}
+.p-eta{font-size:10px;color:var(--textM);white-space:nowrap;font-weight:600;letter-spacing:0.3px}
+
+/* ── Chat ── */
+.chat-wrap{display:flex;flex-direction:column;height:calc(100vh - 148px);padding:0 36px}
+.chat-msgs{flex:1;overflow-y:auto;padding:16px 0;display:flex;flex-direction:column;gap:18px;scroll-behavior:smooth}
+.chat-msgs::-webkit-scrollbar{width:3px}
+.chat-msgs::-webkit-scrollbar-thumb{background:var(--borderS);border-radius:2px}
+.mrow{display:flex;gap:11px;animation:msgIn .28s ease}
+.mrow.user{flex-direction:row-reverse}
+@keyframes msgIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.av{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.av.ai{background:var(--grad);box-shadow:0 0 14px rgba(99,102,241,.3)}
+.av.me{background:rgba(255,255,255,.1)}
+.mbody{max-width:68%}
+.mbubble{padding:11px 15px;border-radius:15px;font-size:13.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+.user .mbubble{background:var(--grad);border-radius:15px 4px 15px 15px;color:#fff}
+.ai .mbubble{background:var(--bg3);border:1px solid var(--border);border-radius:4px 15px 15px 15px;color:var(--text)}
+.mmeta{display:flex;align-items:center;gap:7px;margin-top:5px;padding:0 3px}
+.user .mmeta{flex-direction:row-reverse}
+.mtime{font-size:11px;color:var(--textM)}
+.dbg-btn{font-size:11px;color:var(--textM);cursor:pointer;background:none;border:none;padding:2px 5px;border-radius:4px;transition:all .15s;font-family:inherit}
+.dbg-btn:hover{background:rgba(255,255,255,.05);color:var(--text2)}
+.dbg-panel{margin-top:8px;padding:11px;background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:var(--rs);display:none;font-size:11.5px}
+.dbg-panel.open{display:block;animation:fadeIn .2s ease}
+.dbg-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--textM);margin-bottom:5px}
+.dbg-val{color:var(--text2);font-family:monospace;line-height:1.5;white-space:pre-wrap;word-break:break-word;max-height:150px;overflow-y:auto}
+.typing{display:flex;gap:4px;align-items:center;padding:12px 15px}
+.tdot{width:6px;height:6px;background:var(--textM);border-radius:50%;animation:tdot 1.2s infinite}
+.tdot:nth-child(2){animation-delay:.2s}
+.tdot:nth-child(3){animation-delay:.4s}
+@keyframes tdot{0%,80%,100%{transform:scale(1);opacity:.4}40%{transform:scale(1.25);opacity:1}}
+.chat-footer{padding:14px 0;border-top:1px solid var(--border)}
+.sess-bar{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.sess-lbl{font-size:11.5px;color:var(--textM);white-space:nowrap}
+.sess-inp{padding:5px 11px;background:rgba(255,255,255,.04);border:1px solid var(--borderS);border-radius:6px;color:var(--text2);font-size:12px;font-family:monospace;width:190px;outline:none}
+.sess-inp:focus{border-color:var(--accent)}
+.msg-form{display:flex;gap:10px}
+.msg-inp{flex:1;padding:11px 15px;background:var(--bg3);border:1px solid var(--borderS);border-radius:11px;color:var(--text);font-size:13.5px;font-family:inherit;outline:none;resize:none;max-height:110px;transition:border-color .18s,box-shadow .18s}
+.msg-inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.send-btn{padding:11px 18px;background:var(--grad);border:none;border-radius:11px;color:#fff;cursor:pointer;font-size:17px;transition:all .18s;box-shadow:0 2px 10px rgba(99,102,241,.3)}
+.send-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 4px 18px rgba(99,102,241,.4)}
+.send-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Knowledge Base ── */
+.kb-grid{display:grid;grid-template-columns:360px 1fr;gap:20px;padding:0 36px 36px}
+.upload-zone{border:2px dashed var(--borderS);border-radius:var(--r);padding:32px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(99,102,241,.02)}
+.upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:rgba(99,102,241,.06)}
+.u-icon{font-size:32px;margin-bottom:10px}
+.u-title{font-size:15px;font-weight:600;margin-bottom:5px}
+.u-sub{font-size:12px;color:var(--textM);margin-bottom:14px}
+.url-row{display:flex;gap:10px;margin-top:16px}
+
+/* ── Table ── */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:9px 14px;font-size:10.5px;font-weight:600;color:var(--textM);text-transform:uppercase;letter-spacing:.7px;border-bottom:1px solid var(--border)}
+td{padding:11px 14px;font-size:12.5px;color:var(--text2);border-bottom:1px solid rgba(51,65,85,.4)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+.doc-name{color:var(--text);font-weight:500;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Admin ── */
+.admin-grid{display:grid;grid-template-columns:380px 1fr;gap:20px;padding:0 36px 36px}
+.tenant-row{display:flex;justify-content:space-between;align-items:flex-start;padding:13px 0;border-bottom:1px solid var(--border)}
+.tenant-row:last-child{border-bottom:none}
+.tenant-name{font-weight:600;font-size:13.5px;margin-bottom:4px}
+.tenant-meta{font-size:11.5px;color:var(--textM);font-family:monospace}
+.copy-btn{background:none;border:1px solid var(--borderS);color:var(--textM);padding:4px 9px;border-radius:5px;font-size:11px;cursor:pointer;transition:all .15s;font-family:inherit}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── Service list ── */
+.svc{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid rgba(51,65,85,.4)}
+.svc:last-child{border-bottom:none}
+.svc-name{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:500}
+.sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sdot.ok{background:var(--ok);box-shadow:0 0 7px var(--ok)}
+.sdot.warn{background:var(--warn)}
+.sdot.err{background:var(--err)}
+.sdot.chk{background:var(--warn);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.svc-detail{font-size:11.5px;color:var(--textM)}
+.cfg-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(51,65,85,.3);font-size:12.5px}
+.cfg-row:last-child{border-bottom:none}
+.cfg-key{color:var(--text2)}
+.cfg-val{color:var(--accent);font-family:monospace;font-weight:600}
+
+/* ── Setup overlay ── */
+.overlay{position:fixed;inset:0;background:rgba(3,7,18,.97);backdrop-filter:blur(8px);z-index:1000;display:flex;align-items:center;justify-content:center}
+.setup-card{background:var(--bg3);border:1px solid var(--border);border-radius:18px;padding:36px;width:430px;box-shadow:0 24px 60px rgba(0,0,0,.5),0 0 0 1px rgba(99,102,241,.1)}
+.setup-logo{text-align:center;margin-bottom:28px}
+.setup-icon{width:56px;height:56px;background:var(--grad);border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:26px;margin:0 auto 14px;box-shadow:0 0 28px rgba(99,102,241,.4)}
+.setup-title{font-size:20px;font-weight:700;letter-spacing:-.4px}
+.setup-sub{font-size:13px;color:var(--textM);margin-top:5px}
+.hint-box{margin-top:18px;padding:12px;background:rgba(99,102,241,.06);border:1px solid var(--border);border-radius:8px;font-size:12px;color:var(--text2);line-height:1.8}
+code{color:var(--accent);font-family:monospace;font-size:.95em}
+
+/* ── Toast ── */
+.toast-wrap{position:fixed;top:20px;right:20px;z-index:2000;display:flex;flex-direction:column;gap:8px}
+.toast{padding:11px 18px;border-radius:var(--rs);font-size:12.5px;font-weight:500;display:flex;align-items:center;gap:9px;animation:slideR .28s ease,fadeOut .28s 2.7s ease forwards;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.t-ok{background:#064e3b;color:#34d399;border:1px solid rgba(52,211,153,.2)}
+.t-err{background:#450a0a;color:#fca5a5;border:1px solid rgba(252,165,165,.2)}
+.t-info{background:#1e1b4b;color:#a5b4fc;border:1px solid rgba(165,180,252,.2)}
+@keyframes slideR{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes fadeOut{to{opacity:0;pointer-events:none}}
+
+/* ── Empty / loading ── */
+.empty{text-align:center;padding:50px 20px}
+.empty-ico{font-size:36px;margin-bottom:14px;opacity:.35}
+.empty-lbl{font-size:15px;font-weight:600;color:var(--text2);margin-bottom:6px}
+.empty-sub{font-size:13px;color:var(--textM)}
+.content-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:0 36px 36px}
+@media(max-width:900px){
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .kb-grid,.admin-grid,.content-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Toast container -->
+<div class="toast-wrap" id="toasts"></div>
+
+<!-- Setup overlay -->
+<div class="overlay" id="overlay">
+  <div class="setup-card">
+    <div class="setup-logo">
+      <div class="setup-icon">🧠</div>
+      <div class="setup-title">AI Nexus Dashboard</div>
+      <div class="setup-sub">Connect your API keys to get started</div>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Tenant API Key <span style="color:var(--err)">*</span></label>
+      <input id="sk_tenant" class="finp" type="password" placeholder="sk-…" autocomplete="off">
+      <div style="font-size:11px;color:var(--textM);margin-top:5px">From: POST /api/v1/admin/tenants → <code>api_key</code></div>
+    </div>
+    <div class="fgrp">
+      <label class="flbl">Admin API Key <span style="color:var(--textM)">(optional — for tenant management)</span></label>
+      <input id="sk_admin" class="finp" type="password" placeholder="admin-secret" autocomplete="off">
+    </div>
+    <button id="connectBtn" class="btn btn-primary" style="width:100%;justify-content:center" onclick="doConnect()">🚀 &nbsp;Connect</button>
+    <div class="hint-box">
+      <strong>Quick Start:</strong><br>
+      1. Set <code>GEMINI_API_KEY</code> in <code>.env</code><br>
+      2. <code>uvicorn app.main:app --reload</code><br>
+      3. Create tenant at <code>/docs</code> → <code>POST /api/v1/admin/tenants</code><br>
+      4. Paste returned <code>api_key</code> above
+    </div>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="logo">
+    <div class="logo-icon">🧠</div>
+    <div>
+      <div class="logo-name">AI Nexus</div>
+      <div class="logo-sub">Multi-Tenant Intelligence</div>
+    </div>
+  </div>
+  <div class="nav-lbl">Workspace</div>
+  <div id="n-overview" class="nav-item active" onclick="nav('overview',this)"><span class="nav-icon">📊</span>Overview</div>
+  <div id="n-chat"     class="nav-item" onclick="nav('chat',this)"><span class="nav-icon">💬</span>Chat Agent</div>
+  <div id="n-kb"       class="nav-item" onclick="nav('kb',this)"><span class="nav-icon">📚</span>Knowledge Base</div>
+  <div class="nav-lbl">System</div>
+  <div id="n-admin"    class="nav-item" onclick="nav('admin',this)"><span class="nav-icon">⚙️</span>Admin</div>
+  <div class="nav-item" onclick="window.open('/docs','_blank')"><span class="nav-icon">📖</span>API Docs<span class="nav-ext">↗</span></div>
+  <div class="sidebar-footer">
+    <div class="key-box">
+      <div class="key-row"><div class="dot" id="dotT"></div><span class="key-lbl">Tenant</span></div>
+      <div class="key-val" id="lblT">Not connected</div>
+      <div class="key-row" style="margin-top:8px"><div class="dot" id="dotA"></div><span class="key-lbl">Admin</span></div>
+      <div class="key-val" id="lblA">Not connected</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="width:100%;justify-content:center" onclick="showOverlay()">🔑 Change Keys</button>
+  </div>
+</nav>
+
+<!-- Main -->
+<main class="main">
+
+<!-- VIEW: Overview -->
+<div id="v-overview" class="view active">
+  <div class="ph">
+    <div><div class="ph-title">Dashboard Overview</div><div class="ph-sub" id="ov-tenant">Loading…</div></div>
+    <button class="btn btn-ghost btn-sm" onclick="loadOverview()">↻ Refresh</button>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-ico">📄</div><div class="stat-val" id="s-chunks">—</div><div class="stat-lbl">Indexed Chunks</div></div>
+    <div class="stat-card"><div class="stat-ico">📋</div><div class="stat-val" id="s-docs">—</div><div class="stat-lbl">Documents</div></div>
+    <div class="stat-card"><div class="stat-ico">💬</div><div class="stat-val" id="s-sess">—</div><div class="stat-lbl">Chat Sessions</div></div>
+    <div class="stat-card"><div class="stat-ico">⚡</div><div class="stat-val" id="s-lat">—</div><div class="stat-lbl">Avg Latency</div></div>
+  </div>
+  <div class="content-grid">
+    <div class="card">
+      <div class="card-title">🔧 Service Health</div>
+      <div id="svc-list">
+        <div class="svc"><div class="svc-name"><div class="sdot chk"></div>FastAPI</div><div class="svc-detail">Checking…</div></div>
+        <div class="svc"><div class="svc-name"><div class="sdot chk"></div>Qdrant Vector DB</div><div class="svc-detail">Checking…</div></div>
+        <div class="svc"><div class="svc-name"><div class="sdot chk"></div>Gemini LLM</div><div class="svc-detail">Checking…</div></div>
+        <div class="svc"><div class="svc-name"><div class="sdot chk"></div>Embedding Model</div><div class="svc-detail">Checking…</div></div>
+        <div class="svc"><div class="svc-name"><div class="sdot chk"></div>BM25 Sparse</div><div class="svc-detail">Checking…</div></div>
+        <div class="svc"><div class="svc-name"><div class="sdot chk"></div>Reranker</div><div class="svc-detail">Checking…</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">⚙️ Retrieval Config</div>
+      <div id="cfg-list"><div style="font-size:13px;color:var(--textM)">Loading…</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW: Chat -->
+<div id="v-chat" class="view">
+  <div class="ph">
+    <div><div class="ph-title">💬 Chat Agent</div><div class="ph-sub">Full pipeline: Intent Classify → RAG/Tools → Generate → Guardrail</div></div>
+    <button class="btn btn-ghost btn-sm" onclick="clearChat()">🗑 Clear</button>
+  </div>
+  <div class="chat-wrap">
+    <div class="chat-msgs" id="chat-msgs">
+      <div class="empty"><div class="empty-ico">🤖</div><div class="empty-lbl">Start the conversation</div><div class="empty-sub">Try: <em>"What is your return policy?"</em> or <em>"Status of order ORD1234"</em></div></div>
+    </div>
+    <div class="chat-footer">
+      <div class="sess-bar">
+        <span class="sess-lbl">Session:</span>
+        <input class="sess-inp" id="sess-id" value="test-session-001">
+        <button class="btn btn-ghost btn-sm" onclick="newSess()">+ New</button>
+        <span style="flex:1"></span>
+        <span id="last-intent"></span>
+      </div>
+      <div class="msg-form">
+        <textarea id="msg-inp" class="msg-inp" placeholder="Ask anything… (Enter to send)" rows="1"></textarea>
+        <button id="send-btn" class="send-btn" onclick="sendMsg()">↑</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW: Knowledge Base -->
+<div id="v-kb" class="view">
+  <div class="ph">
+    <div><div class="ph-title">📚 Knowledge Base</div><div class="ph-sub">Upload documents to power RAG retrieval</div></div>
+    <button class="btn btn-ghost btn-sm" onclick="loadDocs()">↻ Refresh</button>
+  </div>
+  <div class="kb-grid">
+    <div class="card">
+      <div class="card-title">📤 Upload</div>
+      <div class="upload-zone" id="drop-zone"
+           onclick="document.getElementById('file-inp').click()"
+           ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
+        <div class="u-icon">☁️</div>
+        <div class="u-title">Drop files here</div>
+        <div class="u-sub">PDF · DOCX · XLSX · CSV · TXT · HTML · PNG · JPG · MP3 · WAV<br>Max 50 MB</div>
+        <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();document.getElementById('file-inp').click()">📎 Choose File</button>
+        <input type="file" id="file-inp" style="display:none"
+               accept=".pdf,.docx,.pptx,.xlsx,.csv,.txt,.html,.png,.jpg,.jpeg,.mp3,.wav,.m4a"
+               onchange="onFileSelect(event)">
+      </div>
+      <div style="margin-top:18px">
+        <div class="card-title">🌐 Ingest URL</div>
+        <div class="url-row">
+          <input class="finp" id="url-inp" type="url" placeholder="https://example.com/page" style="flex:1">
+          <button class="btn btn-primary" onclick="ingestUrl()">↓ Ingest</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📋 Documents</span><span id="doc-count" style="font-size:11.5px;font-weight:400;color:var(--textM)"></span>
+      </div>
+      <div class="tbl-wrap" id="docs-tbl">
+        <div class="empty"><div class="empty-ico">📬</div><div class="empty-lbl">No documents yet</div><div class="empty-sub">Upload your first file to build the knowledge base</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW: Admin -->
+<div id="v-admin" class="view">
+  <div class="ph">
+    <div><div class="ph-title">⚙️ Admin Panel</div><div class="ph-sub">Create and manage tenants</div></div>
+  </div>
+  <div class="admin-grid">
+    <div class="card">
+      <div class="card-title">➕ Create Tenant</div>
+      <div id="admin-warn" style="display:none;margin-bottom:14px;padding:10px 12px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:12.5px;color:var(--warn)">⚠️ Admin key not set. Add it via 🔑 Change Keys.</div>
+      <div class="fgrp"><label class="flbl">Tenant Name *</label><input class="finp" id="t-name" placeholder="Acme Corp"></div>
+      <div class="fgrp"><label class="flbl">Plan Tier</label><select class="finp fsel" id="t-plan"><option value="free">Free</option><option value="pro">Pro</option><option value="enterprise">Enterprise</option></select></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="createTenant()">➕ Create Tenant</button>
+    </div>
+    <div class="card">
+      <div class="card-title" style="display:flex;justify-content:space-between">
+        <span>👥 Tenants</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadTenants()">↻ Refresh</button>
+      </div>
+      <div id="tenants-list">
+        <div class="empty"><div class="empty-ico">👥</div><div class="empty-lbl">No tenants loaded</div><div class="empty-sub">Admin key required</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<script>
+// ════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════
+const S = {
+  tenantKey: '',
+  adminKey: '',
+  msgs: [],
+  latencies: [],
+  pollTimers: {},
+};
+
+// ════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  const tk = localStorage.getItem('tenantKey');
+  const ak = localStorage.getItem('adminKey') || '';
+  if (tk) {
+    S.tenantKey = tk; S.adminKey = ak;
+    hideOverlay(); loadOverview();
+  }
+  const inp = document.getElementById('msg-inp');
+  inp.addEventListener('input', () => { inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,110)+'px'; });
+  inp.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} });
+});
+
+// ════════════════════════════════════════════
+//  AUTH
+// ════════════════════════════════════════════
+function doConnect() {
+  const tk = document.getElementById('sk_tenant').value.trim();
+  const ak = document.getElementById('sk_admin').value.trim();
+  if (!tk) { toast('Tenant API Key is required', 'err'); return; }
+  S.tenantKey = tk; S.adminKey = ak;
+  localStorage.setItem('tenantKey', tk);
+  if (ak) localStorage.setItem('adminKey', ak);
+  hideOverlay(); updateKeyBadges(); loadOverview();
+}
+function showOverlay() {
+  document.getElementById('sk_tenant').value = S.tenantKey;
+  document.getElementById('sk_admin').value = S.adminKey;
+  document.getElementById('overlay').style.display = 'flex';
+}
+function hideOverlay() {
+  document.getElementById('overlay').style.display = 'none';
+  updateKeyBadges();
+}
+function updateKeyBadges() {
+  const setKey = (dotId, lblId, key) => {
+    const d = document.getElementById(dotId), l = document.getElementById(lblId);
+    if (key) { d.className='dot on'; l.textContent=key.slice(0,8)+'…'; }
+    else { d.className='dot'; l.textContent='Not connected'; }
+  };
+  setKey('dotT','lblT',S.tenantKey);
+  setKey('dotA','lblA',S.adminKey);
+}
+
+// ════════════════════════════════════════════
+//  NAV
+// ════════════════════════════════════════════
+function nav(view, el) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('v-'+view).classList.add('active');
+  if (view==='overview') loadOverview();
+  if (view==='kb') loadDocs();
+  if (view==='admin') { loadTenants(); toggleAdminWarn(); }
+}
+
+// ════════════════════════════════════════════
+//  API HELPERS
+// ════════════════════════════════════════════
+async function api(method, path, body, useAdmin=false) {
+  const headers = {'Content-Type':'application/json'};
+  if (useAdmin) headers['X-Admin-Key'] = S.adminKey;
+  else if (S.tenantKey) headers['X-API-Key'] = S.tenantKey;
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`${r.status}: ${t.slice(0,120)}`);
+  }
+  return r.json();
+}
+async function apiForm(path, formData) {
+  const r = await fetch(path, { method:'POST', headers:{'X-API-Key':S.tenantKey}, body:formData });
+  if (!r.ok) { const t = await r.text(); throw new Error(`${r.status}: ${t.slice(0,120)}`); }
+  return r.json();
+}
+
+// ════════════════════════════════════════════
+//  OVERVIEW
+// ════════════════════════════════════════════
+async function loadOverview() {
+  if (!S.tenantKey) return;
+  try {
+    const [stats, health] = await Promise.all([
+      api('GET', '/api/v1/ingest/stats'),
+      fetch('/health/detail').then(r=>r.json()),
+    ]);
+    document.getElementById('s-chunks').textContent = (stats.indexed_chunks||0).toLocaleString();
+    document.getElementById('ov-tenant').textContent = `Tenant: ${stats.tenant_id||'—'}`;
+    // Docs count
+    const docs = await api('GET', '/api/v1/ingest/documents?limit=100');
+    document.getElementById('s-docs').textContent = (Array.isArray(docs)?docs.length:0);
+    // Sessions
+    const sessKeys = Object.keys(localStorage).filter(k=>k.startsWith('sess_'));
+    document.getElementById('s-sess').textContent = sessKeys.length || '0';
+    // Latency
+    document.getElementById('s-lat').textContent = S.latencies.length
+      ? Math.round(S.latencies.reduce((a,b)=>a+b,0)/S.latencies.length)+'ms' : '—';
+    renderServices(health);
+    renderConfig(health.config || {});
+  } catch(e) { toast('Overview load failed: '+e.message,'err'); }
+}
+
+function renderServices(h) {
+  const svcs = [
+    ['FastAPI', h.fastapi],
+    ['Qdrant', h.qdrant],
+    ['Gemini LLM', h.gemini],
+    ['Embedding Model', h.embedding_model],
+    ['BM25 Sparse', h.bm25_backend],
+    ['Cross-Encoder', h.reranker],
+  ];
+  document.getElementById('svc-list').innerHTML = svcs.map(([name, s]) => {
+    if (!s) return '';
+    const cls = s.status==='ok'?'ok':s.status==='warning'?'warn':'err';
+    return `<div class="svc"><div class="svc-name"><div class="sdot ${cls}"></div>${name}</div><div class="svc-detail">${s.detail||''}</div></div>`;
+  }).join('');
+}
+
+function renderConfig(cfg) {
+  if (!cfg || !Object.keys(cfg).length) {
+    document.getElementById('cfg-list').innerHTML = '<div style="font-size:13px;color:var(--textM)">Not available</div>';
+    return;
+  }
+  const labels = {
+    top_k_retrieval:'Retrieval candidates',top_k_rerank:'Final passages',
+    min_relevance_score:'Min relevance score',chunk_size:'Chunk size (tokens)',
+    chunk_overlap:'Chunk overlap',session_ttl_hours:'Session TTL (h)',max_conversation_turns:'Max context turns',
+  };
+  document.getElementById('cfg-list').innerHTML = Object.entries(cfg).map(([k,v])=>
+    `<div class="cfg-row"><span class="cfg-key">${labels[k]||k}</span><span class="cfg-val">${v}</span></div>`
+  ).join('');
+}
+
+// ════════════════════════════════════════════
+//  CHAT
+// ════════════════════════════════════════════
+async function sendMsg() {
+  if (!S.tenantKey) { showOverlay(); return; }
+  const inp = document.getElementById('msg-inp');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  const sessId = document.getElementById('sess-id').value.trim() || 'test-session-001';
+
+  inp.value = ''; inp.style.height = 'auto';
+  const btn = document.getElementById('send-btn');
+  btn.disabled = true;
+
+  appendMsg('user', msg);
+  const typId = appendTyping();
+  const t0 = Date.now();
+
+  try {
+    const res = await api('POST', '/api/v1/chat/message', { session_id:sessId, message:msg, message_type:'text' });
+    removeEl(typId);
+    const lat = Date.now()-t0;
+    S.latencies.push(lat);
+    if (S.latencies.length > 20) S.latencies.shift();
+    appendAiMsg(res, lat);
+    showLastIntent(res.intent);
+    localStorage.setItem('sess_'+sessId, '1');
+  } catch(e) {
+    removeEl(typId);
+    appendMsg('ai', '⚠️ Error: '+e.message);
+    toast('Chat error: '+e.message,'err');
+  } finally { btn.disabled=false; }
+}
+
+function appendMsg(role, text) {
+  const div = document.createElement('div');
+  div.className = 'mrow '+(role==='user'?'user':'ai');
+  const av = role==='user'?'👤':'🤖';
+  const avClass = role==='user'?'me':'ai';
+  div.innerHTML = `<div class="av ${avClass}">${av}</div>
+    <div class="mbody"><div class="mbubble">${esc(text)}</div>
+    <div class="mmeta"><span class="mtime">${now()}</span></div></div>`;
+  getMsgBox().appendChild(div);
+  scrollChat();
+}
+
+function appendAiMsg(res, latMs) {
+  const id = 'dbg-'+Date.now();
+  const intentBadge = intentTag(res.intent);
+  const hasDebug = res.debug || res.tool_results?.length || res.safety_flags?.length;
+  const div = document.createElement('div');
+  div.className = 'mrow ai';
+  div.innerHTML = `<div class="av ai">🤖</div>
+    <div class="mbody">
+      <div class="mbubble">${esc(res.response||'(empty response)')}</div>
+      <div class="mmeta">
+        ${intentBadge}
+        <span class="mtime">${now()}</span>
+        <span class="mtime">⚡ ${latMs}ms</span>
+        ${hasDebug?`<button class="dbg-btn" onclick="toggleDbg('${id}')">🔍 Debug</button>`:''}
+      </div>
+      ${hasDebug?`<div class="dbg-panel" id="${id}">${buildDebug(res)}</div>`:''}
+    </div>`;
+  getMsgBox().appendChild(div);
+  scrollChat();
+}
+
+function buildDebug(res) {
+  let h = '';
+  if (res.intent) h += `<div class="dbg-lbl">Intent</div><div class="dbg-val">${res.intent} (conf: ${(res.intent_confidence||0).toFixed(2)})\n${res.intent_reasoning||''}</div>`;
+  if (res.debug?.retrieved_context_preview) h += `<div class="dbg-lbl" style="margin-top:10px">RAG Context (preview)</div><div class="dbg-val">${esc(res.debug.retrieved_context_preview)}</div>`;
+  if (res.tool_results?.length) h += `<div class="dbg-lbl" style="margin-top:10px">Tool Results</div><div class="dbg-val">${esc(JSON.stringify(res.tool_results,null,2))}</div>`;
+  if (res.safety_flags?.length) h += `<div class="dbg-lbl" style="margin-top:10px">Safety Flags</div><div class="dbg-val">${res.safety_flags.join(', ')}</div>`;
+  if (res.escalate) h += `<div class="dbg-lbl" style="margin-top:10px">🚨 Escalation</div><div class="dbg-val">Routed to human agent</div>`;
+  return h || '<div class="dbg-val">No debug data</div>';
+}
+
+function appendTyping() {
+  const id = 'typ-'+Date.now();
+  const div = document.createElement('div');
+  div.id = id; div.className = 'mrow ai';
+  div.innerHTML = `<div class="av ai">🤖</div><div class="mbody"><div class="mbubble"><div class="typing"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div></div></div>`;
+  getMsgBox().appendChild(div); scrollChat(); return id;
+}
+
+function toggleDbg(id) { document.getElementById(id)?.classList.toggle('open'); }
+function getMsgBox() { return document.getElementById('chat-msgs'); }
+function scrollChat() { const b=getMsgBox(); b.scrollTop=b.scrollHeight; }
+function removeEl(id) { document.getElementById(id)?.remove(); }
+function clearChat() { getMsgBox().innerHTML=`<div class="empty"><div class="empty-ico">🤖</div><div class="empty-lbl">New conversation</div></div>`; S.msgs=[]; document.getElementById('last-intent').innerHTML=''; }
+function newSess() { document.getElementById('sess-id').value='sess-'+Date.now(); clearChat(); }
+function showLastIntent(intent) { document.getElementById('last-intent').innerHTML = intentTag(intent); }
+function intentTag(intent) {
+  const map = {rag:'b-rag',tool_call:'b-tool',chitchat:'b-chat',escalate:'b-esc'};
+  const labels = {rag:'RAG',tool_call:'Tool Call',chitchat:'Chitchat',escalate:'Escalate'};
+  const c = map[intent]||'b-chat';
+  return intent ? `<span class="badge ${c}">${labels[intent]||intent}</span>` : '';
+}
+
+// ════════════════════════════════════════════
+//  KNOWLEDGE BASE
+// ════════════════════════════════════════════
+async function loadDocs() {
+  if (!S.tenantKey) return;
+  document.getElementById('docs-tbl').innerHTML = '<div style="padding:20px;color:var(--textM);font-size:13px">Loading…</div>';
+  try {
+    const docs = await api('GET', '/api/v1/ingest/documents?limit=100');
+    document.getElementById('doc-count').textContent = docs.length + ' document'+(docs.length!==1?'s':'');
+    if (!docs.length) {
+      document.getElementById('docs-tbl').innerHTML = `<div class="empty"><div class="empty-ico">📬</div><div class="empty-lbl">No documents yet</div></div>`;
+      return;
+    }
+    document.getElementById('docs-tbl').innerHTML = `
+      <table><thead><tr>
+        <th>File</th><th>Type</th><th>Status</th><th>Chunks</th><th>Added</th><th></th>
+      </tr></thead><tbody>
+      ${docs.map(d => `<tr>
+        <td><div class="doc-name" title="${esc(d.filename)}">${esc(d.filename)}</div></td>
+        <td>${d.doc_type||'—'}</td>
+        <td>${renderStatus(d)}</td>
+        <td>${d.chunk_count||'—'}</td>
+        <td>${fmtDate(d.created_at)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="deleteDoc('${d.id}','${esc(d.filename)}')">🗑</button></td>
+      </tr>`).join('')}
+      </tbody></table>`;
+    // Auto-poll any in-progress docs
+    docs.filter(d=>d.status==='pending'||d.status==='processing').forEach(d=>pollDoc(d.id));
+  } catch(e) { toast('Failed to load docs: '+e.message,'err'); }
+}
+
+function renderStatus(d) {
+  if (d.status === 'processing' && d.metadata && d.metadata.progress_percent !== undefined) {
+    const p = d.metadata.progress_percent;
+    const eta = (d.metadata.eta_seconds !== null && d.metadata.eta_seconds !== undefined) 
+      ? d.metadata.eta_seconds + 's' 
+      : '…';
+    return `<div class="p-col">
+              <div class="p-bar-bg"><div class="p-bar-fill" style="width:${p}%"></div></div>
+              <div class="p-eta">${p}% &middot; ${eta} remain</div>
+            </div>`;
+  }
+  return `<span class="badge ${statusClass(d.status)}">${d.status}</span>`;
+}
+
+function statusClass(s) { return {pending:'b-pend',processing:'b-proc',completed:'b-done',failed:'b-fail'}[s]||'b-pend'; }
+
+async function onFileSelect(e) {
+  const file = e.target.files[0]; if (!file) return;
+  await uploadFile(file); e.target.value='';
+}
+function onDragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag-over'); }
+function onDragLeave(e) { e.preventDefault(); document.getElementById('drop-zone').classList.remove('drag-over'); }
+function onDrop(e) {
+  e.preventDefault(); document.getElementById('drop-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0]; if (file) uploadFile(file);
+}
+async function uploadFile(file) {
+  toast(`Uploading "${file.name}"…`,'info');
+  const fd = new FormData(); fd.append('file', file);
+  try {
+    const r = await apiForm('/api/v1/ingest/file', fd);
+    toast(`✅ "${file.name}" accepted (${r.doc_id.slice(0,8)}…)`,'ok');
+    loadDocs(); pollDoc(r.doc_id);
+  } catch(e) { toast('Upload failed: '+e.message,'err'); }
+}
+async function ingestUrl() {
+  const url = document.getElementById('url-inp').value.trim();
+  if (!url) { toast('Enter a URL','err'); return; }
+  try {
+    const r = await api('POST', '/api/v1/ingest/url', {url});
+    toast(`URL accepted (${r.doc_id.slice(0,8)}…)`,'ok');
+    document.getElementById('url-inp').value='';
+    loadDocs(); pollDoc(r.doc_id);
+  } catch(e) { toast('URL ingest failed: '+e.message,'err'); }
+}
+async function deleteDoc(id, name) {
+  if (!confirm(`Delete "${name}"?`)) return;
+  try {
+    await api('DELETE', `/api/v1/ingest/documents/${id}`);
+    toast(`"${name}" deleted`,'ok'); loadDocs();
+  } catch(e) { toast('Delete failed: '+e.message,'err'); }
+}
+function pollDoc(docId) {
+  if (S.pollTimers[docId]) return; // already polling
+  let tries = 0;
+  const MAX_TRIES = 20; // ~2 minutes max
+  const INTERVALS = [3000, 5000, 8000, 12000]; // exponential backoff
+
+  const tick = async () => {
+    tries++;
+    try {
+      const r = await fetch(`/api/v1/ingest/documents/${docId}`, {
+        headers: { 'X-API-Key': S.tenantKey }
+      });
+      // 404 = doc was deleted, stop silently
+      if (r.status === 404) { stopPoll(docId); return; }
+      if (!r.ok) { stopPoll(docId); return; }
+      const d = await r.json();
+      if (d.status === 'completed') {
+        stopPoll(docId); loadDocs();
+        toast(`✅ "${d.filename}" indexed (${d.chunk_count} chunks)`, 'ok');
+      } else if (d.status === 'failed') {
+        stopPoll(docId); loadDocs();
+        toast(`❌ "${d.filename}" failed: ${d.error_message || 'unknown'}`, 'err');
+      } else if (tries >= MAX_TRIES) {
+        stopPoll(docId); loadDocs();
+        toast(`⏱ Processing timeout for "${d.filename}" — check server logs`, 'info');
+      } else {
+        // Schedule next poll
+        // Re-render table if processing to show the live progress bar updates
+        if (d.status === 'processing') loadDocs(); 
+        
+        const delay = d.status === 'processing' 
+          ? 2500 
+          : INTERVALS[Math.min(tries - 1, INTERVALS.length - 1)];
+        S.pollTimers[docId] = setTimeout(tick, delay);
+      }
+    } catch {
+      stopPoll(docId); // network error — give up
+    }
+  };
+
+  // Start first poll after 3s
+  S.pollTimers[docId] = setTimeout(tick, 3000);
+}
+
+function stopPoll(docId) {
+  clearTimeout(S.pollTimers[docId]);
+  delete S.pollTimers[docId];
+}
+
+// ════════════════════════════════════════════
+//  ADMIN
+// ════════════════════════════════════════════
+function toggleAdminWarn() {
+  document.getElementById('admin-warn').style.display = S.adminKey ? 'none' : 'block';
+}
+async function createTenant() {
+  if (!S.adminKey) { toast('Admin key required','err'); return; }
+  const name = document.getElementById('t-name').value.trim();
+  if (!name) { toast('Tenant name required','err'); return; }
+  try {
+    const t = await api('POST','/api/v1/admin/tenants',{
+      name: document.getElementById('t-name').value.trim(),
+      plan_tier: document.getElementById('t-plan').value,
+    }, true);
+    toast(`✅ Tenant "${t.name}" created`,'ok');
+    document.getElementById('t-name').value='';
+    loadTenants();
+    prompt(`✅ Tenant created! Copy the API key below (shown once):`, t.api_key||'');
+  } catch(e) { toast('Create failed: '+e.message,'err'); }
+}
+async function loadTenants() {
+  if (!S.adminKey) {
+    document.getElementById('tenants-list').innerHTML=`<div class="empty"><div class="empty-ico">🔑</div><div class="empty-lbl">Admin key required</div><div class="empty-sub">Set it via 🔑 Change Keys</div></div>`;
+    return;
+  }
+  try {
+    const tenants = await api('GET','/api/v1/admin/tenants',null,true);
+    if (!tenants.length) { document.getElementById('tenants-list').innerHTML=`<div class="empty"><div class="empty-ico">👥</div><div class="empty-lbl">No tenants yet</div></div>`; return; }
+    document.getElementById('tenants-list').innerHTML = tenants.map(t=>`
+      <div class="tenant-row">
+        <div>
+          <div class="tenant-name">${esc(t.name)} <span class="badge ${t.is_active?'b-done':'b-fail'}" style="font-size:10px">${t.is_active?'active':'inactive'}</span></div>
+          <div class="tenant-meta">${t.plan_tier} · ID: ${t.id.slice(0,12)}…</div>
+          <div class="tenant-meta" style="margin-top:3px">Key: ${t.api_key ? t.api_key.slice(0,12)+'…' : '—'}</div>
+        </div>
+        <button class="copy-btn" onclick="copyKey('${t.api_key||''}')">📋 Copy Key</button>
+      </div>`).join('');
+  } catch(e) { toast('Load tenants failed: '+e.message,'err'); }
+}
+function copyKey(key) {
+  if (!key) return;
+  navigator.clipboard.writeText(key).then(()=>toast('API key copied!','ok')).catch(()=>prompt('Copy this key:',key));
+}
+
+// ════════════════════════════════════════════
+//  UTILS
+// ════════════════════════════════════════════
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  el.className = `toast t-${type==='ok'?'ok':type==='err'?'err':'info'}`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(()=>el.remove(), 3200);
+}
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function now() { return new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+function fmtDate(s) { if (!s) return '—'; const d=new Date(s); return d.toLocaleDateString(); }
+</script>
+</body>
+</html>
