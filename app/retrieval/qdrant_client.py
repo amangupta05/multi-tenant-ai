@@ -294,6 +294,45 @@ class QdrantService:
         logger.info("Deleted {} Qdrant points for tenant='{}'", n, tenant_id)
         return n
 
+    def get_chunks_by_document(self, *, tenant_id: str, doc_id: str, limit: int = 200) -> list[SearchResult]:
+        """Fetch and return all text chunks associated with a specific document."""
+        from qdrant_client.models import FieldCondition, Filter, MatchValue  # type: ignore
+
+        client = self._require_client()
+        doc_filter = Filter(
+            must=[
+                FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id)),
+                FieldCondition(key="doc_id",    match=MatchValue(value=doc_id)),
+            ]
+        )
+
+        res, _ = client.scroll(
+            collection_name=settings.qdrant_collection,
+            scroll_filter=doc_filter,
+            limit=limit,
+            with_payload=True,
+            with_vectors=False
+        )
+
+        results: list[SearchResult] = []
+        for p in res:
+            payload = p.payload or {}
+            results.append(SearchResult(
+                id=str(p.id),
+                text=payload.get("text", ""),
+                score=1.0,  # no score for scroll
+                tenant_id=payload.get("tenant_id", tenant_id),
+                doc_id=payload.get("doc_id", doc_id),
+                chunk_index=payload.get("chunk_index", 0),
+                source=payload.get("source", ""),
+                section_heading=payload.get("section_heading", ""),
+                metadata=payload.get("metadata", {}),
+            ))
+
+        # Sort by chunk_index to ensure logical order
+        results.sort(key=lambda x: x.chunk_index)
+        return results
+
     # ── Read operations ────────────────────────────────────────────────────
 
     def search(

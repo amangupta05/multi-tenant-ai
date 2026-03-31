@@ -251,6 +251,17 @@ class UrlIngestRequest(BaseModel):
     title: str | None = None   # Optional override for the document title
 
 
+class ChunkResponse(BaseModel):
+    """A single segment of text as stored in the vector database."""
+
+    id: str
+    text: str
+    chunk_index: int
+    source: str
+    section_heading: str
+    metadata: dict[str, Any]
+
+
 class IngestAcceptedResponse(BaseModel):
     doc_id: str
     filename: str
@@ -436,6 +447,38 @@ async def get_document(
         raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found.")
 
     return DocumentResponse.model_validate(doc)
+
+
+@router.get(
+    "/documents/{doc_id}/chunks",
+    response_model=list[ChunkResponse],
+    summary="List the text segments (chunks) generated for a document",
+)
+async def list_document_chunks(
+    doc_id: str,
+    tenant: Any = Depends(get_tenant_from_api_key),
+    session: AsyncSession = Depends(get_session),
+) -> list[ChunkResponse]:
+    """Retrieve the actual text chunks from Qdrant for manual analysis/visualization."""
+    doc = await crud.get_document(session, doc_id)
+
+    if not doc or doc.tenant_id != tenant.id:
+        raise HTTPException(status_code=404, detail=f"Document '{doc_id}' not found.")
+
+    # fetch from qdrant
+    hits = qdrant_service.get_chunks_by_document(tenant_id=tenant.id, doc_id=doc_id)
+
+    return [
+        ChunkResponse(
+            id=h.id,
+            text=h.text,
+            chunk_index=h.chunk_index,
+            source=h.source,
+            section_heading=h.section_heading,
+            metadata=h.metadata,
+        )
+        for h in hits
+    ]
 
 
 @router.delete(

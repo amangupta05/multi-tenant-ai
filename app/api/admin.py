@@ -141,7 +141,10 @@ async def delete_tenant(
     session: AsyncSession = Depends(get_session),
     _: None = Depends(verify_admin_key),
 ) -> SuccessResponse:
-    deleted = await crud.delete_tenant(session, tenant_id)
-    if not deleted:
+    success = await crud.delete_tenant(session, tenant_id)
+    if not success:
         raise HTTPException(status_code=404, detail=f"Tenant '{tenant_id}' not found.")
     return SuccessResponse(message=f"Tenant '{tenant_id}' deactivated.")
+
+
+
