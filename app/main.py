@@ -9,7 +9,7 @@ Interactive docs:
     http://localhost:8000/docs
 """
 
-from __future__ import annotations
+from __future__ import annotations  # Enables postponed evaluation of type annotations
 
 import sys
 import time
@@ -29,7 +29,14 @@ from app.db import close_db, init_db, ping_db
 # ── Logging setup ─────────────────────────────────────────────────────────────
 
 def _configure_logging() -> None:
-    """Replace the default Loguru handler with one that matches our log level."""
+    """
+    Configures the Loguru logger.
+    - Removes the default standard error handler.
+    - Adds a formatted console handler with colors.
+    - Adds a rotating file handler to persist logs for 7 days.
+    Rationale: Standard logging is often too verbose or lacks structure; Loguru provides 
+    a cleaner API and better out-of-the-box formatting for production debugging.
+    """
     logger.remove()  # Remove default handler
     logger.add(
         sys.stderr,
@@ -57,8 +64,12 @@ def _configure_logging() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # type: ignore[type-arg]
     """
-    Everything before the yield runs on startup.
-    Everything after yields runs on shutdown.
+    Manages the application lifecycle.
+    - Startup: Runs before the application starts accepting requests.
+      Initializes the database, vector store, and logging.
+    - Shutdown: Runs after the application stops receiving requests.
+      Cleans up database connections and other resources.
+    Rationale: Centralizes resource management to ensure clean connections and prevent memory leaks.
     """
     _configure_logging()
     _print_banner()
@@ -101,6 +112,7 @@ async def lifespan(app: FastAPI):  # type: ignore[type-arg]
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
 
+# Initialize the FastAPI application with metadata and the lifespan manager.
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
@@ -129,7 +141,11 @@ app.add_middleware(
 
 @app.middleware("http")
 async def request_timing_middleware(request: Request, call_next: Any) -> Any:
-    """Log every request with method, path, status, and latency."""
+    """
+    Intercepts every HTTP request to calculate processing time.
+    Adds a custom header 'X-Process-Time-Ms' to the response.
+    Rationale: Essential for monitoring performance and identifying slow API endpoints.
+    """
     start = time.perf_counter()
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start) * 1000
@@ -148,6 +164,12 @@ async def request_timing_middleware(request: Request, call_next: Any) -> Any:
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """
+    Global handler for any unexpected errors.
+    Returns a consistent JSON response instead of a raw traceback.
+    Rationale: Prevents leaking sensitive information in production and provides 
+    a standardized error format for frontend consumption.
+    """
     logger.exception("Unhandled error on {} {}: {}", request.method, request.url.path, exc)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -161,17 +183,20 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 
+# Import routers here to avoid circular imports.
 from app.api import admin, dashboard, ingest, chat  # noqa: E402
 from app.api.dashboard import router as dashboard_router  # noqa: E402
 
-API_PREFIX = "/api/v1"
+API_PREFIX = "/api/v1"  # Standard API versioning prefix
 
 # Mount dashboard static files (index.html + assets)
+# This allows serving the frontend directly from the backend server.
 import os  # noqa: E402
 _dashboard_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "dashboard")
 if os.path.isdir(_dashboard_dir):
     app.mount("/dashboard", StaticFiles(directory=_dashboard_dir, html=True), name="dashboard")
 
+# Include functional modules (routers) with a versioned prefix.
 app.include_router(dashboard_router)   # GET / → redirect, GET /health/detail
 app.include_router(chat.router, prefix=API_PREFIX)
 app.include_router(ingest.router,  prefix=API_PREFIX)
@@ -231,6 +256,7 @@ async def health_check() -> dict:
 # ── ASCII banner ──────────────────────────────────────────────────────────────
 
 def _print_banner() -> None:  # pragma: no cover
+    """Prints a decorative ASCII banner to the console on startup for flavor."""
     banner = r"""
   __  __ _   _ _ _   _     _____                      _       _
  |  \/  | | | | | |_(_)   |_   _|__ _ __   __ _ _ __ | |_    / \   ___ _
